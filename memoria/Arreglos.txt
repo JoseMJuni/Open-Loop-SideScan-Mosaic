@@ -1,0 +1,1 @@
+En la introducción meter SLAM, y en el estado del arte meter imágenes sonar y leerla de nuevo hay alguna frase sin sentido y cambiar la referencia q esta mayusculas
