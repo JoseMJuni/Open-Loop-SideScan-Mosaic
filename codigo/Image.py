@@ -4,4 +4,5 @@ class Image:
         self.contour  = contour
         self.inertial = inertial
         self.coord    = coord
+        self.width    = 100
         

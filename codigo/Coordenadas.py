@@ -12,4 +12,3 @@ class Coord:
         for line in temp:
             resultCoord.append(Coord(line.split()[0], line.split()[1]))
         return resultCoord
-

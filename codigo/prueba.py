@@ -10,7 +10,7 @@ from numpy.fft    import fft
 from numpy.linalg import norm
 from Inertial import Inertial
 from Coordenadas import Coord
-from Image import Image
+from Pose import Pose
 
 def readrgb(image):
     return cv.cvtColor( image, cv.COLOR_BGR2RGB) 
@@ -167,8 +167,25 @@ def rotate_line_pixel(coordCont, degree):
 
     return coord
 
+def rotate_line_pixel2(coordCont, radian): 
+    x = coordCont[0]
+    y = coordCont[1]
+    xpos = int(x + np.cos(radian) * 100)
+    ypos = int(y - np.sin(radian) * 100)
+    
+    return xpos,ypos
+
+
+def rotate_line_pixel3(coordCont, radian): 
+    x = coordCont[0]
+    y = coordCont[1]
+    xpos = int(x + np.cos(radian) * -100)
+    ypos = int(y - np.sin(radian) * -100)
+    
+    return xpos,ypos
+
 def vector_projection(u, v):
-    return (int) (np.dot(u, v)/np.dot(v, v))*v
+    return (int) (np.dot(v, u)/np.dot(v, v))*v
     
 def scalar_projection(u, v):
     return (int) (np.dot(u, v) / np.linalg.norm(v))
@@ -222,19 +239,66 @@ def bresenham_algorithm(v1, v2):
     
     return vResult;
 
+def mapeoX(cmin, cmax, pmin, pmax):
+    ax = (pmax-pmin)/(cmax-cmin)
+    bx = (cmax*pmin-pmax*cmin)/(cmax-cmin)
+    return ax,bx
 
+def mapeoY(cmin, cmax, pmin, pmax):
+    ay = (pmax-pmin)/(cmax-cmin)
+    by = (cmax*pmin-pmax*cmin)/(cmax-cmin)
+    return ay, by
+
+def mapeaXY(ax, bx, ay, by, x, y):
+    xp = ax*x+bx
+    yp = ay*y+by
+    return int(xp), int(yp)
+
+def humberto(xm, ym):
+    kx = mapa.shape[1]/metros
+    ky = mapa.shape[0]/metros
+    offsetx =  mapa.shape[1]/2
+    offsety =  mapa.shape[0]/2
+    xp = np.abs(xm*kx-offsetx)
+    xy = np.abs(ym*ky-offsety)
+    return xp, xy
+
+def jose(xm, ym):
+    offsetx =  mapa.shape[1]/2
+    offsety =  mapa.shape[0]/2
+    xp = np.abs((xm*mapa.shape[1])/metros-offsetx)
+    xy = np.abs((ym*mapa.shape[0])/metros-offsety)
+    xp	= xp + 10 * np.cos(float(bufferPose[counterLines].yaw))
+    xy	= xy + 10 * np.sin(float(bufferPose[counterLines].yaw))
+    return xp, xy
+
+def humberto2(apym):
+    ky = mapa.shape[0]/metros
+    apym = apym*ky
+    return np.round(apym)
+
+
+ax, bx = mapeoX(-1000, 1000, 0, 1023)
+ay, by = mapeoY(-1000, 1000, 0, 1023)
 
 
 ##Datos sensores
 widthBeam = 200
+
+apx = widthBeam*np.sin(60*np.pi/180)
+apy = 200/widthBeam
+metros = 400
 horizontalBeamwidth = 0.5
 verticalBeamwidth = 60
 bufferInertial = Inertial.ReadFromFile("../recursos/datos/sibiu-pro-carboneras-anforas-2.jdb.salida")
 bufferCoord    = Coord.ReadFromFile("../recursos/datos/coordenadas.txt")
+bufferPose    = Pose.ReadFromFile("../recursos/datos/pose.txt")
 cap = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
 coordInit  = bufferCoord[0]
-mapa = np.zeros((800, 600,1), dtype = "uint8")
+mapa = np.zeros((1024, 1024,1), dtype = "uint8")
 mapa.fill(0) # or img[:] = 255
+mapa2 = np.zeros((1024, 1024,1), dtype = "uint8")
+mapa2.fill(0) # or img[:] = 255
 sift = cv.xfeatures2d.SIFT_create()
 matcher = cv.BFMatcher()  # buscador de coincidencias por fuerza bruta
 contador = 0
@@ -243,6 +307,7 @@ inicioMapa = [mapa.shape[1]-1,0]
 finMapa    = [mapa.shape[1]-1,mapa.shape[0]-1]
 print(mapa.shape)
 centroMapa = [mapa.shape[0]/2, mapa.shape[1]/2]
+print(len(bufferPose))
 
 # Check if camera opened successfully
 if (cap.isOpened()== False): 
@@ -313,48 +378,67 @@ while(cap.isOpened()):
     elif k & 0xFF == ord('n'):   
         img = listFrames[indexFrameROI]
         lineaPixels = img[indiceROIX:indiceROIX+1, 0:col]
-        cv.imshow('Frame2', lineaPixels)
         lineaPixels = adjust_light(lineaPixels)
         lineaPixels = resize_image(lineaPixels)
         lineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
-        radian = bufferInertial[counterLines].euler[2]*np.pi/180
-        (y, x) = lineaPixels.shape
-        print(y,x)
-        box = [np.array([[0,0],[x-1,0]], dtype=np.int32)]
-        box2 = [np.array([[centroMapa[1]-widthBeam/2,centroMapa[0]-counterLines],[centroMapa[1]+widthBeam/2,centroMapa[0]-counterLines]], dtype=np.int32)]
-        vectorLineaXY = (box[0][1] - box[0][0])
-        vectorMapaXY = (box2[0][1] - box2[0][0])
-        x1y1Linea = box[0][0]
-        x1y1Mapa = box2[0][0]
-        proyeccionEscalar = scalar_projection(vectorLineaXY, vectorMapaXY)
-        proyeccionVectorial = vector_projection(vectorLineaXY, vectorMapaXY)
+        xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
+        xm, ym = int((xm-float(coordInit.x))*100), int((ym-float(coordInit.y))*100)
+        print(xm, ym)
+        xp1,yp1 = jose(xm,ym)
+        print("Humberto: ", xp1, yp1)
+        
+        xp,yp = mapeaXY(ax, bx, ay, by, xm, ym)
+        print("Pablo: ",xp, yp)
+        #https://www.youtube.com/watch?v=C8LoyjinqD0 mapping
+        xp1, yp1 = xp, yp
+        xp	= xp + 0.2 * np.cos(float(bufferPose[counterLines].yaw))
+        yp	= yp + 0.2 * np.sin(float(bufferPose[counterLines].yaw))
+        vectorScan = [np.array([[0,0],[200-1,0]], dtype=np.int32)]
+        vectorPicture = [np.array([[xp-99,yp],[xp+99,yp]], dtype=np.int32)]
+        vectorPicture = rotate_line_pixel(vectorPicture, bufferInertial[counterLines].euler[2] )
+        puntoPintar = bresenham_algorithm(vectorPicture[0][0], vectorPicture[0][1])
+        vectorPicture2 = np.array([xp1, yp1], dtype=np.int32)
+        #print(xp1,yp1)
+        #print(vectorPicture2)
+        vectorPicture21 = rotate_line_pixel2(vectorPicture2,float(bufferPose[counterLines].yaw))
+        vectorPicture22 = rotate_line_pixel3(vectorPicture2,float(bufferPose[counterLines].yaw))
+        #mapa2.fill(0) # or img[:] = 255
+        #mapa2[vectorPicture2[1],vectorPicture2[0]] = 255
+        #mapa2[vectorPicture21[1],vectorPicture21[0]] = 255
+        #mapa2[vectorPicture22[1],vectorPicture22[0]] = 255
+        #print(vectorPicture21)
+        #print(vectorPicture22)
+        
 
-        print(box2)
-
-        box2 = rotate_line_pixel(box2, bufferInertial[counterLines].euler[2] )
-        puntoPintar = bresenham_algorithm(box2[0][0], box2[0][1])
-        print(box2)
+        puntoPintar2 = bresenham_algorithm(vectorPicture21, vectorPicture22)
+        #print(puntoPintar2)
+        #print(float(bufferPose[counterLines].yaw))
+        #print(float(bufferPose[counterLines].yaw)*180/np.pi)
+        
         for i, pair in enumerate(puntoPintar):
             #Tprint(pair[1], pair[0])
-            if i >= x-1: break
-            mapa[pair[1], pair[0]] = lineaPixels[0,i]
+            mapa[pair[1],pair[0]] = lineaPixels[0, i]
             #while(1):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
-            #       break            
-        indiceROIX = indiceROIX - 1
-        if(indiceROIX==row):
-            indexFrameROI = indexFrameROI+1   
-            indiceROIX = 544
-            last_crop_img = None
-        coordX = float(bufferCoord[counterLines].x) - float(coordInit.x)
-        coordY = float(bufferCoord[counterLines].y) - float(coordInit.y)         
-        print("CoordX, CoordY",coordX/1000, coordY/1000)
-        print("CoordX, CoordY",coordX, coordY)
-        counterLines = counterLines + 1
-        cv.imshow('map', mapa)
-        cv.imshow('Frame2', lineaPixels)
+            #       break     
+            
+        for i, pair in enumerate(puntoPintar2):
+            #Tprint(pair[1], pair[0])
+            mapa2[pair[1],pair[0]] = lineaPixels[0, i]
+            #while(1):
+            #   k = cv.waitKey(33)
+            #   if k==27:    # Esc key to stop
+            #       break     
 
+        counterLines = counterLines + 1   
+        indiceROIX = indiceROIX - 1
+        if(indiceROIX==-1):
+            indexFrameROI = indexFrameROI+1
+            indiceROIX = row-1
+            
+        cv.imshow('map', mapa)
+        cv.imshow('map2', mapa2)
 
   # Break the loop
   else: 
