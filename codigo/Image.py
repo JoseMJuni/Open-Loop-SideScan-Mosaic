@@ -1,8 +1,8 @@
 class Image:
-    def __init__(self, img, contour, inertial, coord):
-        self.img      = img
-        self.contour  = contour
-        self.inertial = inertial
-        self.coord    = coord
-        self.width    = 100
+    def __init__(self, idImage, img, pose, coord, resize):
+        self.idImage      = idImage
+        self.imgOrig      = img
+        self.pose         = pose
+        self.coord        = coord
+        self.resize       = resize
         

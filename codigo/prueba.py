@@ -4,6 +4,7 @@ import datetime
 import imutils
 import argparse
 import copy
+import time
 from matplotlib import pyplot as plt
 from scipy.ndimage.interpolation import rotate
 from pyproj import Proj
@@ -11,8 +12,19 @@ from numpy.fft    import fft
 from numpy.linalg import norm
 from Inertial import Inertial
 from Coordenadas import Coord
+from Image import Image
 from Pose import Pose
 from skimage.measure import compare_ssim
+
+#Crear Botones https://github.com/StanislavJochman/Kinematic_with_interpolation/blob/daba194ae1b7790559ebd37a15095216166c324b/functions.py#L24
+
+def ZoomIn():
+    pass
+
+def GUI():
+    #cv.createButton("Zoom In", ZoomIn, 0, cv.QT_PUSH_BUTTON,False)
+    #cv.createTrackbar('Zoom','map',0,1,ZoomIn)
+    pass
 
 
 def readrgb(image):
@@ -259,11 +271,15 @@ def bresenham_algorithm(v1, v2):
     return vResult;
 
 def mapeoX(cmin, cmax, pmin, pmax):
+    if(cmax == 0 and cmin == 0):
+        return 0,0
     ax = (pmax-pmin)/(cmax-cmin)
     bx = (cmax*pmin-pmax*cmin)/(cmax-cmin)
     return ax,bx
 
 def mapeoY(cmin, cmax, pmin, pmax):
+    if(cmax == 0 and cmin == 0):
+        return 0,0
     ay = (pmax-pmin)/(cmax-cmin)
     by = (cmax*pmin-pmax*cmin)/(cmax-cmin)
     return ay, by
@@ -272,6 +288,22 @@ def mapeaXY(ax, bx, ay, by, x, y):
     xp = ax*x+bx
     yp = ay*y+by
     return int(xp), int(yp)
+
+def minCoord(xy):
+    if(minXYm[0] > xy[0]):
+        minXYm[0] = xy[0]
+        print("cambio")
+    if(minXYm[1] > xy[1]):
+        minXYm[1] = xy[1]   
+        print("cambio")
+    
+def maxCoord(xy):
+    if(maxXYm[0] < xy[0]):
+        maxXYm[0] = xy[0]
+        print("cambio")
+    if(maxXYm[1] < xy[1]):
+        maxXYm[1] = xy[1]   
+        print("cambio")
 
 def humberto(xm, ym):
     kx = mapa.shape[1]/metros
@@ -282,20 +314,6 @@ def humberto(xm, ym):
     xy = np.abs(ym*ky-offsety)
     return xp, xy
 
-def jose(xm, ym):
-    offsetx =  mapa.shape[1]/2
-    offsety =  mapa.shape[0]/2
-    xp = np.abs((xm*mapa.shape[1])/metros-offsetx)
-    xy = np.abs((ym*mapa.shape[0])/metros-offsety)
-    xp	= xp + 10 * np.cos(float(bufferPose[counterLines].yaw))
-    xy	= xy + 10 * np.sin(float(bufferPose[counterLines].yaw))
-    return xp, xy
-
-def humberto2(apym):
-    ky = mapa.shape[0]/metros
-    apym = apym*ky
-    return np.round(apym)
-
 def rotation_symmetry(x, y, point): 
     x = x - point[0]
     y = y - point[1]
@@ -305,13 +323,16 @@ def rotation_symmetry(x, y, point):
     x, y = y, x
     return x,y
 
-ax, bx = mapeoX(-1000, 1000, 0, 1023)
-ay, by = mapeoY(-1000, 1000, 0, 1023)
+minXYm = [-600, -600]
+maxXYm = [600, 600]
+
+ax, bx = mapeoX(-600, 600, 0, 1023)
+ay, by = mapeoY(-600, 600, 0, 1023)
 
 
 ##Datos sensores
 widthBeam = 200
-
+timeFrameNew = 3.3 #sec
 apx = widthBeam*np.sin(60*np.pi/180)
 apy = 200/widthBeam
 metros = 200
@@ -339,9 +360,15 @@ lineaPrev = None
 if (cap.isOpened()== False): 
   print("Error opening video stream or file")
 
+
+cv.namedWindow("map")
+
+
+GUI()
 playVideo = True
 primera = True
-listFrames = []
+listFrames = [] #Contiene cada frame
+listFramesNews = [] #Contiene todos los pixeles nuevos
 indexFrameBack  = 0
 indexFrame = 0
 indexFrameROI = 0
@@ -350,16 +377,30 @@ indiceROIY = 0
 counterLines=0
 last_crop_img = None
 cropImg = None
-
 # Read until video is completed
 while(cap.isOpened()):
   # Capture frame-by-frame
+
+      #ret, frame = cap.read()
+      #listFramesNews.append(frame)
+      #milli_time = float((time.time()))
+      #primera = False
   if(playVideo):
+      
       ret, frame = cap.read()
       listFrames.append(frame)
-      if(primera):
-          row, col, _ = frame.shape
+      row, col, _ = frame.shape
+      if(primera is True):
+          milli_time = float(time.time())
+          listFramesNews.append(frame)
           primera = False
+      current_milli_time = float(time.time())
+      resultTime = current_milli_time-milli_time
+      if(resultTime >= 3.3):
+          milli_time = float((time.time()))
+          listFramesNews.append(frame)
+          print(('nuevo frame'))
+          
   if ret == True:
     # Display the resulting frame
     cv.imshow('Frame',frame)
@@ -429,7 +470,7 @@ while(cap.isOpened()):
         
         #https://likegeeks.com/es/procesar-de-imagenes-en-python/
     elif k & 0xFF == ord('n'):   
-        img = listFrames[indexFrameROI]
+        img = listFramesNews[indexFrameROI]
         lineaPixels = img[indiceROIX:indiceROIX+1, 0:col]
         lineaPixels = adjust_light(lineaPixels)
         cropImg = copy.copy(lineaPixels)
@@ -437,15 +478,16 @@ while(cap.isOpened()):
         #lineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
         
         xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
-        xMetrosCentral, yMetrosCentral = int((xm-float(coordInit.x))*100), int((ym-float(coordInit.y))*100)        
+        xMetrosCentral, yMetrosCentral = int((xm-float(coordInit.x))*47), int((ym-float(coordInit.y))*47)        
         
         xMetrosIzquierda, yMetrosIzquierda  = xMetrosCentral-100, yMetrosCentral
         xMetrosDerecha, yMetrosDerecha      = xMetrosCentral+100, yMetrosCentral
         
-        
+        ax, bx = mapeoX(minXYm[0], maxXYm[1], 0, 1023)
+        ay, by = mapeoY(minXYm[1], maxXYm[1], 0, 1023)
         xPixelCentral,yPixelCentral     = mapeaXY(ax, bx, ay, by, xMetrosCentral, yMetrosCentral)
         xPixelIzquierda,yPixelIzquierda = mapeaXY(ax, bx, ay, by, 100, 0)
-
+        
 
 
  
@@ -454,29 +496,27 @@ while(cap.isOpened()):
         #Rotamos los puntos 90 grados respecto al centro (512,512)
         #https://www.youtube.com/watch?v=nu2MR1RoFsA
         
+        
         xPixelCentral, yPixelCentral     = rotation_symmetry(xPixelCentral,   yPixelCentral,    (mapa.shape[1]/2, mapa.shape[0]/2))
-        
-        
-   
-        
 
-        xPixelDistancia = np.abs(xPixelIzquierda-513)
-        xIzq,yIzq,xDer,yDer = rotate_line_pixel4((xPixelCentral, yPixelCentral),float(bufferPose[counterLines].yaw), 83)
-        mapa[int(xPixelCentral),int(yPixelCentral)] = 255
-        mapa[xIzq, yIzq] = 255
-        mapa[xDer, yDer] = 255
+        xPixelDistancia = np.abs(xPixelIzquierda-513) #Solo necesito uno para calcular que 100 metros son X pixels.
+        xIzq,yIzq,xDer,yDer = rotate_line_pixel4((xPixelCentral, yPixelCentral),float(bufferPose[counterLines].yaw), xPixelDistancia)
+        #mapa[int(xPixelCentral),int(yPixelCentral)] = 255
+        #mapa[xIzq, yIzq] = 255
+        #mapa[xDer, yDer] = 255
         
         puntoPintar = bresenham_algorithm((xIzq, yIzq), (xDer, yDer))
         widthBeam = len(puntoPintar)
-        lineaPixels = resize_image(lineaPixels)
-        lineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
+        bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
+        resizeLineaPixels = resize_image(lineaPixels)
+        resizeLineaPixels = cv.cvtColor(resizeLineaPixels, cv.COLOR_BGR2GRAY)
  
         
 
         
         for i, pair in enumerate(puntoPintar):
             #Tprint(pair[1], pair[0])
-            mapa[pair[0],pair[1]] = lineaPixels[0, i]
+            mapa[pair[0],pair[1]] = resizeLineaPixels[0, i]
             #while(1):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
@@ -487,7 +527,7 @@ while(cap.isOpened()):
         indiceROIX = indiceROIX - 1
         if(indiceROIX==-1):
             indexFrameROI = indexFrameROI+1
-            indiceROIX = 0 #Solo procesamos la primera linea
+            indiceROIX = row-1 #Solo procesamos la primera linea
             print("cambio frame")
             
             
