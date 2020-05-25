@@ -87,7 +87,7 @@ def resize_image(image):
     #scale_percent = 90# percent of original size
     #width = int(image.shape[1] * scale_percent / 100)
     #height = int(image.shape[0] * 100 / 100)
-    height = 1 #la altura no varia
+    height = 5 #la altura no varia
     dim = (width, height)
     return cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
@@ -323,6 +323,18 @@ def rotation_symmetry(x, y, point):
     x, y = y, x
     return x,y
 
+def remove_water_column(img):
+    print(img.shape)
+    if(len(img.shape)>2):
+        print(img[0,int(img.shape[1]/2),0])
+    else:
+        print("Centro: ",img[0,int(img.shape[1]/2)])
+        for i in range(0,int(img.shape[1]/2)+1):
+            print("Izq: ",img[0,i])
+        for i in range(int(img.shape[1]/2),int(img.shape[1])):
+            print("Der: ",img[0,i])
+
+
 minXYm = [-600, -600]
 maxXYm = [600, 600]
 
@@ -474,11 +486,12 @@ while(cap.isOpened()):
         lineaPixels = img[indiceROIX:indiceROIX+1, 0:col]
         lineaPixels = adjust_light(lineaPixels)
         cropImg = copy.copy(lineaPixels)
+        
         #lineaPixels = resize_image(lineaPixels)
         #lineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
         
         xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
-        xMetrosCentral, yMetrosCentral = int((xm-float(coordInit.x))*47), int((ym-float(coordInit.y))*47)        
+        xMetrosCentral, yMetrosCentral = int((xm-float(coordInit.x))*50), int((ym-float(coordInit.y))*50)        
         
         xMetrosIzquierda, yMetrosIzquierda  = xMetrosCentral-100, yMetrosCentral
         xMetrosDerecha, yMetrosDerecha      = xMetrosCentral+100, yMetrosCentral
@@ -508,15 +521,27 @@ while(cap.isOpened()):
         puntoPintar = bresenham_algorithm((xIzq, yIzq), (xDer, yDer))
         widthBeam = len(puntoPintar)
         bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
-        resizeLineaPixels = resize_image(lineaPixels)
-        resizeLineaPixels = cv.cvtColor(resizeLineaPixels, cv.COLOR_BGR2GRAY)
- 
+        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
+        remove_water_column(colorGrayLineaPixels)
+        resizeLineaPixels = resize_image(colorGrayLineaPixels)
+        cv.imshow('map2', resizeLineaPixels)
         
-
-        
+        mapaPintarBoolean = []
         for i, pair in enumerate(puntoPintar):
-            #Tprint(pair[1], pair[0])
-            mapa[pair[0],pair[1]] = resizeLineaPixels[0, i]
+            for j in range(0,5):
+                if mapa[pair[0]+j,pair[1]] != 0 :
+                    mapaPintarBoolean.append((pair[0],pair[1],j, True))
+                else:
+                    mapaPintarBoolean.append((pair[0],pair[1],j, False))
+
+        i = 0
+        for _, pair in enumerate(mapaPintarBoolean):
+            if(pair[3]):
+                mapa[pair[0]+pair[2],pair[1]] = (resizeLineaPixels[pair[2], i]+mapa[pair[0]+pair[2],pair[1]])/2
+            else:
+                mapa[pair[0]+pair[2],pair[1]] = resizeLineaPixels[pair[2], i]
+            if pair[2] == 4: # Hardcore
+                i = i +1
             #while(1):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
