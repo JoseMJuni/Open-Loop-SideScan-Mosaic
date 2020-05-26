@@ -324,15 +324,34 @@ def rotation_symmetry(x, y, point):
     return x,y
 
 def remove_water_column(img):
-    print(img.shape)
-    if(len(img.shape)>2):
-        print(img[0,int(img.shape[1]/2),0])
-    else:
-        print("Centro: ",img[0,int(img.shape[1]/2)])
-        for i in range(0,int(img.shape[1]/2)+1):
-            print("Izq: ",img[0,i])
-        for i in range(int(img.shape[1]/2),int(img.shape[1])):
-            print("Der: ",img[0,i])
+    ret,thresh1 = cv.threshold(img,120,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    #thresh1 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY,115,2)
+    
+    blanco = True
+    for i in range(int(img.shape[1]/2),0,-1):
+        if blanco and thresh1[0,i] == 255:
+            img[0,i] = 0
+            
+        elif thresh1[0,i]==0:
+            img[0,i] = 0
+            blanco = False
+        else:
+            break
+        
+    blanco = True
+    for i in range(int(img.shape[1]/2),int(img.shape[1])):
+        if blanco and thresh1[0,i] == 255:
+            img[0,i] = 0
+            
+        elif thresh1[0,i]==0:
+            img[0,i] = 0
+            blanco = False
+        else:
+            break
+    return img
+    
+        
+        
 
 
 minXYm = [-600, -600]
@@ -485,7 +504,11 @@ while(cap.isOpened()):
         img = listFramesNews[indexFrameROI]
         lineaPixels = img[indiceROIX:indiceROIX+1, 0:col]
         lineaPixels = adjust_light(lineaPixels)
-        cropImg = copy.copy(lineaPixels)
+        
+        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
+        colorGrayLineaPixels = remove_water_column(colorGrayLineaPixels)
+        cropImg = copy.copy(colorGrayLineaPixels)
+
         
         #lineaPixels = resize_image(lineaPixels)
         #lineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
@@ -521,10 +544,11 @@ while(cap.isOpened()):
         puntoPintar = bresenham_algorithm((xIzq, yIzq), (xDer, yDer))
         widthBeam = len(puntoPintar)
         bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
-        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
-        remove_water_column(colorGrayLineaPixels)
         resizeLineaPixels = resize_image(colorGrayLineaPixels)
+        
         cv.imshow('map2', resizeLineaPixels)
+    
+        
         
         mapaPintarBoolean = []
         for i, pair in enumerate(puntoPintar):
