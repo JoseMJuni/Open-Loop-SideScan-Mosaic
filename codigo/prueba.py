@@ -18,13 +18,38 @@ from skimage.measure import compare_ssim
 
 #Crear Botones https://github.com/StanislavJochman/Kinematic_with_interpolation/blob/daba194ae1b7790559ebd37a15095216166c324b/functions.py#L24
 
-def ZoomIn():
+
+
+def create_windows():
+    global TypeThreshold, ValueThreshold
+    cv.namedWindow("map")
+    
+    TypeThreshold = "Type Threshold"
+    ValueThreshold = "Value"
+    
+def GUI():
+    #GUI_WaterColumn()
     pass
 
-def GUI():
-    #cv.createButton("Zoom In", ZoomIn, 0, cv.QT_PUSH_BUTTON,False)
-    #cv.createTrackbar('Zoom','map',0,1,ZoomIn)
-    pass
+
+def Threshold_Water_Column(v):
+    threshold_type = cv.getTrackbarPos(TypeThreshold, "WaterColumn")
+    threshold_value = cv.getTrackbarPos(ValueThreshold,"WaterColumn")
+    _, dst = cv.threshold( cv.cvtColor(listFramesNews[indexFrameROI], cv.COLOR_BGR2GRAY), threshold_value, 255, threshold_type )
+    cv.imshow("WaterColumn", dst)
+    
+
+def GUI_WaterColumn():
+    cv.namedWindow("WaterColumn")
+    #0: Binary
+    #1: Binary Inverted
+    #2: Threshold Truncated
+    #3: Threshold to Zero
+    #4: Threshold to Zero Inverted
+    # Create Trackbar to choose type of Threshold
+    cv.createTrackbar(TypeThreshold, "WaterColumn" , 3, 4, Threshold_Water_Column)
+    # Create Trackbar to choose Threshold value
+    cv.createTrackbar(ValueThreshold, "WaterColumn" , 0, 255, Threshold_Water_Column)
 
 
 def readrgb(image):
@@ -324,7 +349,7 @@ def rotation_symmetry(x, y, point):
     return x,y
 
 def remove_water_column(img):
-    ret,thresh1 = cv.threshold(img,120,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    ret,thresh1 = cv.threshold(img,160,255,cv.THRESH_BINARY)
     #thresh1 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY,115,2)
     
     blanco = True
@@ -351,14 +376,18 @@ def remove_water_column(img):
     return img
     
         
-        
 
 
-minXYm = [-600, -600]
-maxXYm = [600, 600]
+create_windows()
+GUI()
 
-ax, bx = mapeoX(-600, 600, 0, 1023)
-ay, by = mapeoY(-600, 600, 0, 1023)
+
+
+minXYm = [-500, -500]
+maxXYm = [500, 500]
+
+ax, bx = mapeoX(-450, 450, 0, 1239)
+ay, by = mapeoY(-450, 450, 0, 1239)
 
 
 ##Datos sensores
@@ -374,9 +403,9 @@ bufferCoord    = Coord.ReadFromFile("../recursos/datos/coordenadas.txt")
 bufferPose    = Pose.ReadFromFile("../recursos/datos/pose.txt")
 cap = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
 coordInit  = bufferCoord[0]
-mapa = np.zeros((1024, 1024,1), dtype = "uint8")
+mapa = np.zeros((1240, 1240), dtype = "uint8")
 mapa.fill(0) # or img[:] = 255
-mapa2 = np.zeros((1024, 1024,1), dtype = "uint8")
+mapa2 = np.zeros((1240, 1240,1), dtype = "uint8")
 mapa2.fill(0) # or img[:] = 255
 sift = cv.xfeatures2d.SIFT_create()
 matcher = cv.BFMatcher()  # buscador de coincidencias por fuerza bruta
@@ -391,11 +420,6 @@ lineaPrev = None
 if (cap.isOpened()== False): 
   print("Error opening video stream or file")
 
-
-cv.namedWindow("map")
-
-
-GUI()
 playVideo = True
 primera = True
 listFrames = [] #Contiene cada frame
@@ -424,7 +448,7 @@ while(cap.isOpened()):
       if(primera is True):
           milli_time = float(time.time())
           listFramesNews.append(frame)
-          primera = False
+          primera = False          
       current_milli_time = float(time.time())
       resultTime = current_milli_time-milli_time
       if(resultTime >= 3.3):
@@ -518,9 +542,7 @@ while(cap.isOpened()):
         
         xMetrosIzquierda, yMetrosIzquierda  = xMetrosCentral-100, yMetrosCentral
         xMetrosDerecha, yMetrosDerecha      = xMetrosCentral+100, yMetrosCentral
-        
-        ax, bx = mapeoX(minXYm[0], maxXYm[1], 0, 1023)
-        ay, by = mapeoY(minXYm[1], maxXYm[1], 0, 1023)
+
         xPixelCentral,yPixelCentral     = mapeaXY(ax, bx, ay, by, xMetrosCentral, yMetrosCentral)
         xPixelIzquierda,yPixelIzquierda = mapeaXY(ax, bx, ay, by, 100, 0)
         
@@ -535,21 +557,23 @@ while(cap.isOpened()):
         
         xPixelCentral, yPixelCentral     = rotation_symmetry(xPixelCentral,   yPixelCentral,    (mapa.shape[1]/2, mapa.shape[0]/2))
 
-        xPixelDistancia = np.abs(xPixelIzquierda-513) #Solo necesito uno para calcular que 100 metros son X pixels.
+        xPixelDistancia = np.abs(xPixelIzquierda-mapa.shape[1]/2) #Solo necesito uno para calcular que 100 metros son X pixels.
         xIzq,yIzq,xDer,yDer = rotate_line_pixel4((xPixelCentral, yPixelCentral),float(bufferPose[counterLines].yaw), xPixelDistancia)
         #mapa[int(xPixelCentral),int(yPixelCentral)] = 255
         #mapa[xIzq, yIzq] = 255
         #mapa[xDer, yDer] = 255
         
-        puntoPintar = bresenham_algorithm((xIzq, yIzq), (xDer, yDer))
-        widthBeam = len(puntoPintar)
+        puntoPintar1 = bresenham_algorithm((xPixelCentral, yPixelCentral), (xIzq, yIzq))
+        puntoPintar2 = bresenham_algorithm((xPixelCentral, yPixelCentral), (xDer, yDer))
+        widthBeam = int(xPixelDistancia)*2
         bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
         resizeLineaPixels = resize_image(colorGrayLineaPixels)
         
         cv.imshow('map2', resizeLineaPixels)
-    
+        print(len(puntoPintar1))
+        print(len(puntoPintar2))
         
-        
+        """
         mapaPintarBoolean = []
         for i, pair in enumerate(puntoPintar):
             for j in range(0,5):
@@ -557,15 +581,28 @@ while(cap.isOpened()):
                     mapaPintarBoolean.append((pair[0],pair[1],j, True))
                 else:
                     mapaPintarBoolean.append((pair[0],pair[1],j, False))
+        """
+        leftPixel  = resizeLineaPixels[:,0:int(resizeLineaPixels.shape[1]/2)]
+        rightPixel = resizeLineaPixels[:,int(resizeLineaPixels.shape[1]/2):int(resizeLineaPixels.shape[1])]
+        
+        
+        for i, pair in enumerate(puntoPintar1):
+            for j in range(0,5):   
+                if(i > (leftPixel.shape[1])-1): break
+                if mapa[int(pair[0])+j,int(pair[1])] != 0 and leftPixel[j, i] != 0:
+                    mapa[int(pair[0])+j,int(pair[1])] = int((int(rightPixel[j, i])+(mapa[int(pair[0])+j,int(pair[1])]))/2)
+                else:
+                    mapa[int(pair[0])+j,int(pair[1])] = leftPixel[j, i]
 
-        i = 0
-        for _, pair in enumerate(mapaPintarBoolean):
-            if(pair[3]):
-                mapa[pair[0]+pair[2],pair[1]] = (resizeLineaPixels[pair[2], i]+mapa[pair[0]+pair[2],pair[1]])/2
-            else:
-                mapa[pair[0]+pair[2],pair[1]] = resizeLineaPixels[pair[2], i]
-            if pair[2] == 4: # Hardcore
-                i = i +1
+        for i, pair in enumerate(puntoPintar2):
+            for j in range(0,5):
+                if(i > (rightPixel.shape[1])-1): break
+                if (mapa[int(pair[0]+j),int(pair[1])]) != 0 and int(rightPixel[j, i]) != 0:
+                    mapa[int(pair[0]+j),int(pair[1])] = int((int(rightPixel[j, i])+int(mapa[int(pair[0]+j),int(pair[1])]))/2)
+                
+                else:
+                    mapa[int(pair[0]+j),int(pair[1])] = rightPixel[j, i]
+
             #while(1):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
