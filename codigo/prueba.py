@@ -205,7 +205,8 @@ def rotate_line_pixel3(coordCont, radian):
     return xpos,ypos
 
 
-def rotate_line_pixel4(coordCont, radian, distance): 
+def rotate_line_pixel4(coordCont, radian, distance):
+    print(counterLines, radian)
     x = coordCont[0]
     y = coordCont[1]
     radian = float(radian)
@@ -324,17 +325,31 @@ def rotation_symmetry(x, y, point):
     return x,y
 
 def remove_water_column(img):
-    print(img.shape)
-    if(len(img.shape)>2):
-        print(img[0,int(img.shape[1]/2),0])
-    else:
-        print("Centro: ",img[0,int(img.shape[1]/2)])
-        for i in range(0,int(img.shape[1]/2)+1):
-            print("Izq: ",img[0,i])
-        for i in range(int(img.shape[1]/2),int(img.shape[1])):
-            print("Der: ",img[0,i])
-    #Valor aproximado 40. primero eliminar valores hasta que estemos por debajo de 40 y despues eliminar valores hasta que estemos por encima de 40
-
+    ret,thresh1 = cv.threshold(img,160,255,cv.THRESH_BINARY)
+    #thresh1 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY,115,2)
+    
+    blanco = True
+    for i in range(int(img.shape[1]/2),0,-1):
+        if blanco and thresh1[0,i] == 255:
+            img[0,i] = 0
+            
+        elif thresh1[0,i]==0:
+            img[0,i] = 0
+            blanco = False
+        else:
+            break
+        
+    blanco = True
+    for i in range(int(img.shape[1]/2),int(img.shape[1])):
+        if blanco and thresh1[0,i] == 255:
+            img[0,i] = 0
+            
+        elif thresh1[0,i]==0:
+            img[0,i] = 0
+            blanco = False
+        else:
+            break
+    return img
 
 minXYm = [-600, -600]
 maxXYm = [600, 600]
@@ -515,9 +530,9 @@ while(cap.isOpened()):
 
         xPixelDistancia = np.abs(xPixelIzquierda-513) #Solo necesito uno para calcular que 100 metros son X pixels.
         xIzq,yIzq,xDer,yDer = rotate_line_pixel4((xPixelCentral, yPixelCentral),float(bufferPose[counterLines].yaw), xPixelDistancia)
-        #mapa[int(xPixelCentral),int(yPixelCentral)] = 255
-        #mapa[xIzq, yIzq] = 255
-        #mapa[xDer, yDer] = 255
+        mapa[int(xPixelCentral),int(yPixelCentral)] = 255
+        mapa[xIzq, yIzq] = 255
+        mapa[xDer, yDer] = 255
         
         puntoPintar = bresenham_algorithm((xIzq, yIzq), (xDer, yDer))
         widthBeam = len(puntoPintar)
@@ -528,6 +543,7 @@ while(cap.isOpened()):
         cv.imshow('map2', resizeLineaPixels)
         
         mapaPintarBoolean = []
+        """
         for i, pair in enumerate(puntoPintar):
             for j in range(0,5):
                 if mapa[pair[0]+j,pair[1]] != 0 :
@@ -547,7 +563,7 @@ while(cap.isOpened()):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
             #       break     
-            
+        """
 
         counterLines = counterLines + 1   
         indiceROIX = indiceROIX - 1

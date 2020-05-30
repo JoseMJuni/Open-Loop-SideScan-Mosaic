@@ -27,7 +27,7 @@ mapa.fill(0) # or img[:] = 255
 
 
 def windowUI():
-    global window
+    global window, app
     app = QtWidgets.QApplication([])
     window = Ventana()
 
@@ -160,10 +160,16 @@ def rotate_line_pixel4(coordCont, radian):
     x = coordCont[0]
     y = coordCont[1]
     radian = float(radian)
-    xposIzq = int(np.cos(radian) * (SIZE_BEAM_PIXELS/2) - np.sin(radian) * (0) + x);
-    yposIzq = int(np.sin(radian) * (SIZE_BEAM_PIXELS/2) + np.cos(radian) * (0) + y);
-    xposDer = int(np.cos(radian) * (-SIZE_BEAM_PIXELS/2) - np.sin(radian) * (0) + x);
-    yposDer = int(np.sin(radian) * (-SIZE_BEAM_PIXELS/2) + np.cos(radian) * (0) + y);   
+    """
+    xposIzq = int(np.cos(radian) * (SIZE_BEAM_PIXELS/2) - np.sin(radian) * (0) + x)
+    yposIzq = int(np.sin(radian) * (SIZE_BEAM_PIXELS/2) + np.cos(radian) * (0) + y)
+    xposDer = int(np.cos(radian) * (-SIZE_BEAM_PIXELS/2) - np.sin(radian) * (0) + x)
+    yposDer = int(np.sin(radian) * (-SIZE_BEAM_PIXELS/2) + np.cos(radian) * (0) + y)
+    """
+    xposIzq = int(np.cos(radian) * (SIZE_BEAM_PIXELS/2) - np.sin(radian)  * (SIZE_BEAM_PIXELS/2)  + x)
+    yposIzq = int(np.sin(radian) * (SIZE_BEAM_PIXELS/2) + np.cos(radian)  * (SIZE_BEAM_PIXELS/2)  + y)
+    xposDer = int(np.cos(radian) * (-(SIZE_BEAM_PIXELS/2)) - np.sin(radian) * (-(SIZE_BEAM_PIXELS/2)) + x)
+    yposDer = int(np.sin(radian) * (-(SIZE_BEAM_PIXELS/2)) + np.cos(radian) * (-(SIZE_BEAM_PIXELS/2)) + y)
     return xposIzq,yposIzq,xposDer,yposDer
 
 def vector_projection(u, v):
