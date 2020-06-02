@@ -210,10 +210,10 @@ def rotate_line_pixel4(coordCont, radian, distance):
     x = coordCont[0]
     y = coordCont[1]
     radian = float(radian)
-    xposIzq = int(np.cos(radian) * (distance) - np.sin(radian) * (0) + x);
-    yposIzq = int(np.sin(radian) * (distance) + np.cos(radian) * (0) + y);
-    xposDer = int(np.cos(radian) * (-distance) - np.sin(radian) * (0) + x);
-    yposDer = int(np.sin(radian) * (-distance) + np.cos(radian) * (0) + y);   
+    xposIzq = int(np.cos(radian) * (distance) - np.sin(radian) * (0) + x)
+    yposIzq = int(np.sin(radian) * (distance) + np.cos(radian) * (0) + y)
+    xposDer = int(np.cos(radian) * (-distance) - np.sin(radian) * (0) + x)
+    yposDer = int(np.sin(radian) * (-distance) + np.cos(radian) * (0) + y)
     return xposIzq,yposIzq,xposDer,yposDer
 
 def vector_projection(u, v):
@@ -511,9 +511,7 @@ while(cap.isOpened()):
         
         xMetrosIzquierda, yMetrosIzquierda  = xMetrosCentral-100, yMetrosCentral
         xMetrosDerecha, yMetrosDerecha      = xMetrosCentral+100, yMetrosCentral
-        
-        ax, bx = mapeoX(minXYm[0], maxXYm[1], 0, 1023)
-        ay, by = mapeoY(minXYm[1], maxXYm[1], 0, 1023)
+ 
         xPixelCentral,yPixelCentral     = mapeaXY(ax, bx, ay, by, xMetrosCentral, yMetrosCentral)
         xPixelIzquierda,yPixelIzquierda = mapeaXY(ax, bx, ay, by, 100, 0)
         
