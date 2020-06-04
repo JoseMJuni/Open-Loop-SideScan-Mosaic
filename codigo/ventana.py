@@ -15,9 +15,9 @@ class Ventana(QtWidgets.QMainWindow, Ui_MainWindow):
         
         
     def setBackground(self, imgCV):
-        height, width = imgCV.shape
-        
-        img = QtGui.QImage(imgCV, width, height, QtGui.QImage.Format_Grayscale8)
+        height, width, _ = imgCV.shape
+        imgCV = cv.cvtColor(imgCV, cv.COLOR_BGR2RGB)
+        img = QtGui.QImage(imgCV, width, height, QtGui.QImage.Format_RGB888)
         img = QtGui.QPixmap.fromImage(img)
         
         self.label.setPixmap(img)

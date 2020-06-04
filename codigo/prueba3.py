@@ -25,7 +25,7 @@ bufferVelocity  = Velocity.ReadFromFile("../recursos/datos/velocity.txt")
 cap             = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
 
 
-mapa = np.zeros((4000, 4000), dtype = "uint8")
+mapa = np.zeros((4000, 4000, 3), dtype = "uint8")
 mapa.fill(0) # or img[:] = 255
 height = 1
 
@@ -162,55 +162,22 @@ def rotate_line_pixel3(coordCont, radian):
     return xpos,ypos
 
 
-def rotate_line_pixel4(coordCont, radian): 
+def rotate_line_pixel4(coordCont, radian, distance):
     x = coordCont[0]
     y = coordCont[1]
-    #print(x, y, int(np.cos(radian) * (SIZE_BEAM_PIXELS/2) - np.sin(radian)  * (SIZE_BEAM_PIXELS/2-y)), int(np.sin(radian) * (SIZE_BEAM_PIXELS/2) + np.cos(radian)  * (SIZE_BEAM_PIXELS/2-y)))
+    radian = float(radian)
+    xposIzq = int(np.cos(radian) * (distance) - np.sin(radian) * (0) + x)
+    yposIzq = int(np.sin(radian) * (distance) + np.cos(radian) * (0) + y)
+    xposDer = int(np.cos(radian) * (-distance) - np.sin(radian) * (0) + x)
+    yposDer = int(np.sin(radian) * (-distance) + np.cos(radian) * (0) + y)
+    return xposIzq,yposIzq,xposDer,yposDer
 
-    x1 = SIZE_BEAM_PIXELS/2 - x
-    y1 = 0
-
-    x2 = x1 * np.cos(radian) - y1 * np.sin(radian)
-    y2 = x1 * np.sin(radian) + y1 * np.cos(radian)
-
-    xposIzq = int(x2 + x)
-    yposIzq = int(y2 + y)
-
-
-    
-    print(xposIzq, yposIzq)
-    return xposIzq,yposIzq,0,0
 
 def rotate_line_pixel5(coordCont, center, radian): 
     x = coordCont[0]
     y = coordCont[1]
     #https://stackoverflow.com/questions/13695317/rotate-a-point-around-another-point
-    """
-    /// <summary>
-/// Rotates one point around another
-/// </summary>
-/// <param name="pointToRotate">The point to rotate.</param>
-/// <param name="centerPoint">The center point of rotation.</param>
-/// <param name="angleInDegrees">The rotation angle in degrees.</param>
-/// <returns>Rotated point</returns>
-static Point RotatePoint(Point pointToRotate, Point centerPoint, double angleInDegrees)
-{
-    double angleInRadians = angleInDegrees * (Math.PI / 180);
-    double cosTheta = Math.Cos(angleInRadians);
-    double sinTheta = Math.Sin(angleInRadians);
-    return new Point
-    {
-        X =
-            (int)
-            (cosTheta * (pointToRotate.X - centerPoint.X) -
-            sinTheta * (pointToRotate.Y - centerPoint.Y) + centerPoint.X),
-        Y =
-            (int)
-            (sinTheta * (pointToRotate.X - centerPoint.X) +
-            cosTheta * (pointToRotate.Y - centerPoint.Y) + centerPoint.Y)
-    };
-}
-"""
+   
     cos = np.cos(radian)
     sin = np.sin(radian)
     xposIzq = int(cos * (x - center[0]) - sin * (y - center[1]) + center[0])
@@ -319,8 +286,8 @@ def mapping2(xMeters, yMeters, offsetX, offsetY):
 def rotation_symmetry(x, y, point): 
     x = x - point[0]
     y = y - point[1]
-    y = -y
-    #x = -x
+    #y = -y
+    x = -x
     x = np.abs(x + point[0])
     y = y + point[1]
     x, y = y, x
@@ -357,6 +324,19 @@ def remove_water_column(img):
 def euclidian_distance(a, b):
     n1, n2, e1, e2 = a[0], b[0], a[1], b[1]
     return np.sqrt((e1 - e2)**2 + (n1 - n2)**2)
+
+def grayToBGR(imageGray, imageBGR):
+    imageOutput = cv.cvtColor(imageGray, cv.COLOR_GRAY2BGR)
+    print(imageOutput.shape, imageBGR.shape)
+    print(imageOutput[0,0,0])
+    for i in range(0, imageBGR.shape[0]):
+        for j in range(0, imageBGR.shape[1]):
+            if(imageOutput[i,j,0] == 0): 
+                continue
+            else:
+                for z in range(0,3):
+                    imageOutput[i,j,z] = imageBGR[i,j,z]
+    return imageOutput
     
         
 
@@ -392,7 +372,7 @@ indexFrameROI = 0
 indexFrameY = 511
 counterLines=0
 last_crop_img = None
-cropImg = None
+
 # Read until video is completed
 while(cap.isOpened()):
   # Capture frame-by-frame
@@ -462,14 +442,13 @@ while(cap.isOpened()):
     elif k & 0xFF == ord('n'):   
         img = listFramesNews[indexFrameROI]
         lineaPixels = img[indexFrameY:indexFrameY+1, 0:col]
-        lineaPixels = adjust_light(lineaPixels)
+        lineaPixelsAdjustLight = adjust_light(lineaPixels)
         
-        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
+        colorGrayLineaPixels = cv.cvtColor(lineaPixelsAdjustLight, cv.COLOR_BGR2GRAY)
         colorGrayLineaPixels = remove_water_column(colorGrayLineaPixels)
-        cropImg = copy.copy(colorGrayLineaPixels)
                 
         xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
-        yMetrosCentral, xMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
+        xMetrosCentral, yMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
 
         xPixelCentral, yPixelCentral = mapping2(xMetrosCentral, yMetrosCentral, mapa.shape[1]/2 ,mapa.shape[0]/2)
         xPixelIzquierda, yPixelIzquierda = mapping2(xMetrosCentral, yMetrosCentral+SIZE_BEAM_METERS/2,mapa.shape[1]/2 ,mapa.shape[0]/2)
@@ -477,6 +456,7 @@ while(cap.isOpened()):
 
         #print(xMetrosCentral, yMetrosCentral+SIZE_BEAM_METERS/2, xMetrosCentral, yMetrosCentral-SIZE_BEAM_METERS/2)
         #print(xPixelCentral, yPixelCentral, xPixelIzquierda, yPixelIzquierda, xPixelDerecha, yPixelDerecha)
+        
 
         xPixelCentral, yPixelCentral     =  rotation_symmetry(xPixelCentral, yPixelCentral, (mapa.shape[1]/2, mapa.shape[0]/2))
         xPixelIzquierda, yPixelIzquierda =  rotation_symmetry(xPixelIzquierda, yPixelIzquierda, (mapa.shape[1]/2, mapa.shape[0]/2))
@@ -485,18 +465,20 @@ while(cap.isOpened()):
         xPixelIzquierda,yPixelIzquierda =   rotate_line_pixel5((xPixelIzquierda,yPixelIzquierda),(xPixelCentral,yPixelCentral),float(bufferPose[counterLines].yaw))
         xPixelDerecha,yPixelDerecha     =   rotate_line_pixel5((xPixelDerecha,yPixelDerecha),(xPixelCentral,yPixelCentral),float(bufferPose[counterLines].yaw))
         
-
-        mapa[yPixelIzquierda, xPixelIzquierda] = 255
-        mapa[yPixelCentral, xPixelCentral] = 255
-        mapa[yPixelDerecha, xPixelDerecha] = 255 
         
 
+        mapa[xPixelIzquierda, yPixelIzquierda, 0:3] = 255
+        mapa[xPixelCentral, yPixelCentral, 0:3] = 255
+        mapa[xPixelDerecha,yPixelDerecha, 0:3] = 255 
+        
+
+        lineaPixelColor = grayToBGR(colorGrayLineaPixels, lineaPixels)
+        
 
         puntoPintarIzq = bresenham_algorithm((xPixelCentral, yPixelCentral),(xPixelIzquierda, yPixelIzquierda))
         puntoPintarDer = bresenham_algorithm((xPixelCentral, yPixelCentral),(xPixelDerecha, yPixelDerecha))
         #bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
-        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
-        remove_water_column(colorGrayLineaPixels)
+        
         """
         if (float(bufferVelocity[counterLines].velx) > 0.25):
             height = 8
@@ -522,14 +504,31 @@ while(cap.isOpened()):
             print(height, height2)
             if height < 1: height = 1
         """  
+
+        if(counterLines > 0):
+            #distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            
+            distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            timestamp = (float(bufferCoord[counterLines].time) - float(bufferCoord[counterLines-1].time))/1000
+            velocity = distance/timestamp
+            height = int((velocity*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            
+            rotationVel = np.abs((np.abs(float(bufferPose[counterLines-1].yaw )) - np.abs(float(bufferPose[counterLines].yaw )))/timestamp)
+            height2 = int((rotationVel*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            print(height2)
+            if height < height2: height = height2
+            #height = int(height/2)
+            if height < 1: height = 1
+        
+        #CUANDO ROTE INTENTAR QUE RELLENE HACIA ATRAS EN VEZ DE HACIA DELANTE
         
         
         #print(bufferPose[counterLines].yaw)
 
-        resizeLineaPixels = resize_image(colorGrayLineaPixels, colorGrayLineaPixels.shape[1], height)
+        resizeLineaPixels = resize_image(lineaPixelColor, lineaPixelColor.shape[1], height)
 
-        lineaPixelIzq = resizeLineaPixels[0:resizeLineaPixels.shape[0],0:int(resizeLineaPixels.shape[1]/2)]
-        lineaPixelDer = resizeLineaPixels[0:resizeLineaPixels.shape[0],int(resizeLineaPixels.shape[1]/2):resizeLineaPixels.shape[1]]
+        lineaPixelIzq = resizeLineaPixels[0:resizeLineaPixels.shape[0],0:int(resizeLineaPixels.shape[1]/2), 0:3]
+        lineaPixelDer = resizeLineaPixels[0:resizeLineaPixels.shape[0],int(resizeLineaPixels.shape[1]/2):resizeLineaPixels.shape[1], 0:3]
         #print(len(puntoPintarIzq), len(puntoPintarDer), lineaPixelIzq.shape[1], lineaPixelDer.shape[1])
 
        
@@ -553,11 +552,12 @@ while(cap.isOpened()):
         for _, pair in enumerate(puntoPintarIzq):
             if i == 0: break
             for j in range(0,height):
-                if(np.abs(mapa[pair[1], pair[0]+j] - lineaPixelIzq[j, i]) >=0 and np.abs(mapa[pair[1], pair[0]+j] - lineaPixelIzq[j, i]) <= 30):
-                    #print(pair[1], pair[0]+j,mapa[pair[1], pair[0]+j], lineaPixelIzq[j, i], int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2))
-                    mapa[pair[1], pair[0]+j] = int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2)
-                elif lineaPixelIzq[j,i] != 0:
-                    mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
+                for z in range(0,3):
+                    if(np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) <= 30):
+                        #print(pair[1], pair[0]+j,mapa[pair[1], pair[0]+j], lineaPixelIzq[j, i], int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2))
+                        mapa[pair[0]+j, pair[1], z] = int((lineaPixelIzq[j, i, z]+mapa[pair[0]+j, pair[1], z] )/2)
+                    elif lineaPixelIzq[j,i,z] != 0:
+                        mapa[pair[0]+j, pair[1], z]  = lineaPixelIzq[j, i, z]
                 
                 #mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
             i = i - 1
@@ -565,19 +565,14 @@ while(cap.isOpened()):
         for i, pair in enumerate(puntoPintarDer):
             if i >= lineaPixelDer.shape[1]-1: break
             for j in range(0,height):
-                if(np.abs(mapa[pair[1], pair[0]+j] - lineaPixelDer[j, i]) >=0 and np.abs(mapa[pair[1], pair[0]+j] - lineaPixelDer[j, i]) <= 30):
-                    mapa[pair[1], pair[0]+j] = int((lineaPixelDer[j, i]+ mapa[pair[1], pair[0]+j])/2)
-                elif lineaPixelDer[j,i] != 0:
-                    mapa[pair[1], pair[0]+j] = lineaPixelDer[j,i]
-                
-                #mapa[pair[1], pair[0]+j] = lineaPixelDer[j,i]
-            #while(1):
-            #   k = cv.waitKey(33)
-            #   if k==27:    # Esc key to stop
-            #       break     
+                for z in range(0,3):
+                    if(np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) <= 30):
+                        mapa[pair[0]+j, pair[1], z] = int((lineaPixelDer[j, i, z]+ mapa[pair[0]+j, pair[1], z] )/2)
+                    elif lineaPixelDer[j,i,z] != 0:
+                        mapa[pair[0]+j, pair[1],z]  = lineaPixelDer[j,i,z]
+         
         
         
-        cv.imshow('map2', resizeLineaPixels)
 
 
 
@@ -595,11 +590,11 @@ while(cap.isOpened()):
         #cv.imshow('map', mapa)
         
         if(last_crop_img is None): 
-            last_crop_img = copy.copy(cropImg)
+            last_crop_img = copy.copy(lineaPixelColor)
         if(counterLines > 1):
             last_crop_img = np.concatenate((lineaPrev, last_crop_img), axis=0)
             cv.imshow('concatenate',last_crop_img)
-        lineaPrev = copy.copy(cropImg)
+        lineaPrev = copy.copy(lineaPixelColor)
         window.setBackground(mapa)
 
         #cv.imshow('map2', mapa2)
