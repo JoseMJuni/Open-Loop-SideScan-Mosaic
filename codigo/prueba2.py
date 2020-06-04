@@ -13,12 +13,13 @@ from Coordenadas import Coord
 from Image import Image
 from Pose import Pose
 
-SIZE_BEAM_METERS = 15 
+SIZE_BEAM_METERS = 15*2
 SIZE_BEAM_PIXELS = 908
 SIZE_SCALE_FACTOR = 10
 
 bufferInertial  = Inertial.ReadFromFile("../recursos/datos/sibiu-pro-carboneras-anforas-2.jdb.salida")
-bufferCoord     = Coord.ReadFromFile("../recursos/datos/coordenadas.txt")
+#bufferCoord     = Coord.ReadFromFile("../recursos/datos/coordenadas.txt")
+bufferCoord     = Coord.ReadFromFile("../recursos/datos/datosposicion.txt")
 bufferPose      = Pose.ReadFromFile("../recursos/datos/pose.txt")
 bufferVelocity  = Velocity.ReadFromFile("../recursos/datos/velocity.txt")
 cap             = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
@@ -26,7 +27,7 @@ cap             = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
 
 mapa = np.zeros((4000, 4000), dtype = "uint8")
 mapa.fill(0) # or img[:] = 255
-height = 2
+height = 1
 
 
 
@@ -161,24 +162,17 @@ def rotate_line_pixel3(coordCont, radian):
     return xpos,ypos
 
 
-def rotate_line_pixel4(coordCont, radian): 
+def rotate_line_pixel4(coordCont, radian, distance):
+    print(counterLines, radian)
     x = coordCont[0]
     y = coordCont[1]
-    #print(x, y, int(np.cos(radian) * (SIZE_BEAM_PIXELS/2) - np.sin(radian)  * (SIZE_BEAM_PIXELS/2-y)), int(np.sin(radian) * (SIZE_BEAM_PIXELS/2) + np.cos(radian)  * (SIZE_BEAM_PIXELS/2-y)))
+    radian = float(radian)
+    xposIzq = int(np.cos(radian) * (distance) - np.sin(radian) * (0) + x)
+    yposIzq = int(np.sin(radian) * (distance) + np.cos(radian) * (0) + y)
+    xposDer = int(np.cos(radian) * (-distance) - np.sin(radian) * (0) + x)
+    yposDer = int(np.sin(radian) * (-distance) + np.cos(radian) * (0) + y)
+    return xposIzq,yposIzq,xposDer,yposDer
 
-    x1 = SIZE_BEAM_PIXELS/2 - x
-    y1 = 0
-
-    x2 = x1 * np.cos(radian) - y1 * np.sin(radian)
-    y2 = x1 * np.sin(radian) + y1 * np.cos(radian)
-
-    xposIzq = int(x2 + x)
-    yposIzq = int(y2 + y)
-
-
-    
-    print(xposIzq, yposIzq)
-    return xposIzq,yposIzq,0,0
 
 def rotate_line_pixel5(coordCont, center, radian): 
     x = coordCont[0]
@@ -318,9 +312,10 @@ def mapping2(xMeters, yMeters, offsetX, offsetY):
 def rotation_symmetry(x, y, point): 
     x = x - point[0]
     y = y - point[1]
-    y = -y
+    #y = -y
+    x = -x
     x = np.abs(x + point[0])
-    y = y + point[0]
+    y = y + point[1]
     x, y = y, x
     return int(x),int(y)
 
@@ -350,6 +345,11 @@ def remove_water_column(img):
         else:
             break
     return img
+
+
+def euclidian_distance(a, b):
+    n1, n2, e1, e2 = a[0], b[0], a[1], b[1]
+    return np.sqrt((e1 - e2)**2 + (n1 - n2)**2)
     
         
 
@@ -465,9 +465,11 @@ while(cap.isOpened()):
         xMetrosCentral, yMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
 
         xPixelCentral, yPixelCentral = mapping2(xMetrosCentral, yMetrosCentral, mapa.shape[1]/2 ,mapa.shape[0]/2)
-        
-        xPixelIzquierda, yPixelIzquierda = mapping2(xMetrosCentral, yMetrosCentral+SIZE_BEAM_METERS,mapa.shape[1]/2 ,mapa.shape[0]/2)
-        xPixelDerecha, yPixelDerecha = mapping2(xMetrosCentral, yMetrosCentral-SIZE_BEAM_METERS,mapa.shape[1]/2 ,mapa.shape[0]/2)
+        xPixelIzquierda, yPixelIzquierda = mapping2(xMetrosCentral, yMetrosCentral+SIZE_BEAM_METERS/2,mapa.shape[1]/2 ,mapa.shape[0]/2)
+        xPixelDerecha, yPixelDerecha = mapping2(xMetrosCentral, yMetrosCentral-SIZE_BEAM_METERS/2,mapa.shape[1]/2 ,mapa.shape[0]/2)
+
+        #print(xMetrosCentral, yMetrosCentral+SIZE_BEAM_METERS/2, xMetrosCentral, yMetrosCentral-SIZE_BEAM_METERS/2)
+        #print(xPixelCentral, yPixelCentral, xPixelIzquierda, yPixelIzquierda, xPixelDerecha, yPixelDerecha)
 
         xPixelCentral, yPixelCentral     =  rotation_symmetry(xPixelCentral, yPixelCentral, (mapa.shape[1]/2, mapa.shape[0]/2))
         xPixelIzquierda, yPixelIzquierda =  rotation_symmetry(xPixelIzquierda, yPixelIzquierda, (mapa.shape[1]/2, mapa.shape[0]/2))
@@ -476,11 +478,11 @@ while(cap.isOpened()):
         xPixelIzquierda,yPixelIzquierda =   rotate_line_pixel5((xPixelIzquierda,yPixelIzquierda),(xPixelCentral,yPixelCentral),float(bufferPose[counterLines].yaw))
         xPixelDerecha,yPixelDerecha     =   rotate_line_pixel5((xPixelDerecha,yPixelDerecha),(xPixelCentral,yPixelCentral),float(bufferPose[counterLines].yaw))
         
-        print(xMetrosCentral, yMetrosCentral, xPixelCentral, yPixelCentral, xm, ym)
+        
 
-        mapa[yPixelIzquierda, xPixelIzquierda] = 255
-        mapa[yPixelCentral, xPixelCentral] = 255
-        mapa[yPixelDerecha, xPixelDerecha] = 255 
+        mapa[xPixelIzquierda, yPixelIzquierda] = 255
+        mapa[xPixelCentral, yPixelCentral] = 255
+        mapa[xPixelDerecha,yPixelDerecha] = 255 
         
 
 
@@ -489,14 +491,56 @@ while(cap.isOpened()):
         #bufferImages.append(Image(counterLines, lineaPixels, bufferCoord[counterLines].y, (xIzq, yIzq, xDer, yDer), widthBeam)) #Almacenamos la imagen para computar posibles intersecciones
         colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
         remove_water_column(colorGrayLineaPixels)
+        """
         if (float(bufferVelocity[counterLines].velx) > 0.25):
             height = 8
         else:
-            height = 2
+            height = 5
+        """
+        #CALCULO POR DISTANCIA LINEAL
+        """
+        if(counterLines > 0):
+            distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            height = int((distance*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            if height < 1: height = 1
+            print(distance)
+        """  
+        #CALCULO POR M/S lineal
+        """
+        if(counterLines > 0):
+            #distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            height = int((np.abs(float(bufferVelocity[counterLines].velx)-float(bufferVelocity[counterLines-1].velx))*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferPose[counterLines].yaw)))
+            height2 = int((distance*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            if height2 > height: height = height2
+            print(height, height2)
+            if height < 1: height = 1
+        """  
+
+        if(counterLines > 0):
+            #distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            
+            distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
+            timestamp = (float(bufferCoord[counterLines].time) - float(bufferCoord[counterLines-1].time))/1000
+            velocity = distance/timestamp
+            height = int((velocity*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            
+            rotationVel = np.abs((np.abs(float(bufferPose[counterLines-1].yaw )) - np.abs(float(bufferPose[counterLines].yaw )))/timestamp)
+            height2 = int((rotationVel*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            print(height2)
+            if height < height2: height = height2
+            if height < 1: height = 1
+        
+        #CUANDO ROTE INTENTAR QUE RELLENE HACIA ATRAS EN VEZ DE HACIA DELANTE
+        
+        
+        #print(bufferPose[counterLines].yaw)
+
         resizeLineaPixels = resize_image(colorGrayLineaPixels, colorGrayLineaPixels.shape[1], height)
 
         lineaPixelIzq = resizeLineaPixels[0:resizeLineaPixels.shape[0],0:int(resizeLineaPixels.shape[1]/2)]
         lineaPixelDer = resizeLineaPixels[0:resizeLineaPixels.shape[0],int(resizeLineaPixels.shape[1]/2):resizeLineaPixels.shape[1]]
+        #print(len(puntoPintarIzq), len(puntoPintarDer), lineaPixelIzq.shape[1], lineaPixelDer.shape[1])
 
        
         """
@@ -513,30 +557,30 @@ while(cap.isOpened()):
             #       break     
         
         """
+        
 
         i = (lineaPixelIzq.shape[1])-1
         for _, pair in enumerate(puntoPintarIzq):
             if i == 0: break
             for j in range(0,height):
-                """ 
-                if(mapa[pair[1], pair[0]+j] != 0 and lineaPixelIzq[j, i]) != 0:
-                    mapa[pair[1], pair[0]+j] = int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2)
+                if(np.abs(mapa[pair[0]+j, pair[1]]  - lineaPixelIzq[j, i]) >=0 and np.abs(mapa[pair[0]+j, pair[1]]  - lineaPixelIzq[j, i]) <= 30):
+                    #print(pair[1], pair[0]+j,mapa[pair[1], pair[0]+j], lineaPixelIzq[j, i], int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2))
+                    mapa[pair[0]+j, pair[1]] = int((lineaPixelIzq[j, i]+mapa[pair[0]+j, pair[1]] )/2)
                 elif lineaPixelIzq[j,i] != 0:
-                    mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
-                """
-                mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
+                    mapa[pair[0]+j, pair[1]]  = lineaPixelIzq[j,i]
+                
+                #mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
             i = i - 1
 
         for i, pair in enumerate(puntoPintarDer):
             if i >= lineaPixelDer.shape[1]-1: break
             for j in range(0,height):
-                """
-                if( mapa[pair[1], pair[0]+j] != 0 and lineaPixelDer[j, i]) != 0:
-                    mapa[pair[1], pair[0]+j] = int((lineaPixelDer[j, i]+ mapa[pair[1], pair[0]+j])/2)
+                if(np.abs(mapa[pair[0]+j, pair[1]]  - lineaPixelDer[j, i]) >=0 and np.abs(mapa[pair[0]+j, pair[1]]  - lineaPixelDer[j, i]) <= 30):
+                    mapa[pair[0]+j, pair[1]] = int((lineaPixelDer[j, i]+ mapa[pair[0]+j, pair[1]] )/2)
                 elif lineaPixelDer[j,i] != 0:
-                    mapa[pair[1], pair[0]+j] = lineaPixelDer[j,i]
-                """
-                mapa[pair[1], pair[0]+j] = lineaPixelDer[j,i]
+                    mapa[pair[0]+j, pair[1]]  = lineaPixelDer[j,i]
+                
+                #mapa[pair[1], pair[0]+j] = lineaPixelDer[j,i]
             #while(1):
             #   k = cv.waitKey(33)
             #   if k==27:    # Esc key to stop
