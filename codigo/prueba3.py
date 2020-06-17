@@ -27,6 +27,7 @@ cap             = cv.VideoCapture('../recursos/datos/S200225_7.mp4')
 
 mapa = np.zeros((4000, 4000, 3), dtype = "uint8")
 mapa.fill(0) # or img[:] = 255
+mapa = cv.cvtColor(mapa, cv.COLOR_RGB2BGR)
 height = 1
 
 
@@ -327,8 +328,6 @@ def euclidian_distance(a, b):
 
 def grayToBGR(imageGray, imageBGR):
     imageOutput = cv.cvtColor(imageGray, cv.COLOR_GRAY2BGR)
-    print(imageOutput.shape, imageBGR.shape)
-    print(imageOutput[0,0,0])
     for i in range(0, imageBGR.shape[0]):
         for j in range(0, imageBGR.shape[1]):
             if(imageOutput[i,j,0] == 0): 
@@ -515,7 +514,7 @@ while(cap.isOpened()):
             
             rotationVel = np.abs((np.abs(float(bufferPose[counterLines-1].yaw )) - np.abs(float(bufferPose[counterLines].yaw )))/timestamp)
             height2 = int((rotationVel*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
-            print(height2)
+            #print(height2)
             if height < height2: height = height2
             #height = int(height/2)
             if height < 1: height = 1
@@ -547,30 +546,53 @@ while(cap.isOpened()):
         
         """
         
-
+        entrada = False
         i = (lineaPixelIzq.shape[1])-1
         for _, pair in enumerate(puntoPintarIzq):
             if i == 0: break
             for j in range(0,height):
                 for z in range(0,3):
-                    if(np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) <= 30):
-                        #print(pair[1], pair[0]+j,mapa[pair[1], pair[0]+j], lineaPixelIzq[j, i], int((lineaPixelIzq[j, i]+mapa[pair[1], pair[0]+j])/2))
+                    if((mapa[pair[0]+j, pair[1], z] != 0 and lineaPixelIzq[j, i, z]!=0) and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelIzq[j, i, z]) <= 60):
+                        print(pair[1], pair[0]+j,mapa[pair[0]+j, pair[1], z], lineaPixelIzq[j, i, z], int((lineaPixelIzq[j, i, z]+mapa[ pair[0]+j, pair[1], z])/2))
                         mapa[pair[0]+j, pair[1], z] = int((lineaPixelIzq[j, i, z]+mapa[pair[0]+j, pair[1], z] )/2)
+                        if z == 2:
+                             mapa[pair[0]+j, pair[1], 2] = int((((mapa[pair[0]+j, pair[1], 0] )) * 0.189) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.769) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.393))
+                             if mapa[pair[0]+j, pair[1], 2] > 255: mapa[pair[0]+j, pair[1], 2] = 255
+                        elif z==1:
+                             mapa[pair[0]+j, pair[1], 1] = int((((mapa[pair[0]+j, pair[1], 0]) * 0.168) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.686) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.349)))
+                             if mapa[pair[0]+j, pair[1], 1] > 255: mapa[pair[0]+j, pair[1], 1] = 255
+                        elif z==0:
+                            mapa[pair[0]+j, pair[1], 0] = int((((mapa[pair[0]+j, pair[1], 0] )) * 0.131) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.534) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.272))
+                            if mapa[pair[0]+j, pair[1], 0] > 255: mapa[pair[0]+j, pair[1], 0] = 255
                     elif lineaPixelIzq[j,i,z] != 0:
                         mapa[pair[0]+j, pair[1], z]  = lineaPixelIzq[j, i, z]
+               
+               
                 
-                #mapa[pair[1], pair[0]+j] = lineaPixelIzq[j,i]
             i = i - 1
 
         for i, pair in enumerate(puntoPintarDer):
             if i >= lineaPixelDer.shape[1]-1: break
             for j in range(0,height):
                 for z in range(0,3):
-                    if(np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) <= 30):
-                        mapa[pair[0]+j, pair[1], z] = int((lineaPixelDer[j, i, z]+ mapa[pair[0]+j, pair[1], z] )/2)
+                    if((mapa[pair[0]+j, pair[1], z] != 0 and lineaPixelDer[j, i, z]!=0) and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) >=0 and np.abs(mapa[pair[0]+j, pair[1], z]  - lineaPixelDer[j, i, z]) <= 60):
+                        mapa[pair[0]+j, pair[1], z] = int(((lineaPixelDer[j, i, z]+ mapa[pair[0]+j, pair[1], z] )/2))
+                        if z == 2:
+                            mapa[pair[0]+j, pair[1], 2] = int((((mapa[pair[0]+j, pair[1], 0] )) * 0.189) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.769) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.393))
+                            if mapa[pair[0]+j, pair[1], 2] > 255: mapa[pair[0]+j, pair[1], 2] = 255
+                        elif z==1:
+                            mapa[pair[0]+j, pair[1], 1] = int((((mapa[pair[0]+j, pair[1], 0] )) * 0.168) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.686) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.349))
+                            if mapa[pair[0]+j, pair[1], 1] > 255: mapa[pair[0]+j, pair[1], 1] = 255
+                        elif z==0:
+                            mapa[pair[0]+j, pair[1], 0] = int((((mapa[pair[0]+j, pair[1], 0] )) * 0.131) + (((mapa[pair[0]+j, pair[1], 1] )) * 0.534) + (((mapa[pair[0]+j, pair[1], 2] )) * 0.272))
+                            if mapa[pair[0]+j, pair[1], 0] > 255: mapa[pair[0]+j, pair[1], 0] = 255
                     elif lineaPixelDer[j,i,z] != 0:
                         mapa[pair[0]+j, pair[1],z]  = lineaPixelDer[j,i,z]
+               
+                
+               
          
+        
         
         
 
@@ -588,13 +610,15 @@ while(cap.isOpened()):
             
             
         #cv.imshow('map', mapa)
-        
+        """
         if(last_crop_img is None): 
             last_crop_img = copy.copy(lineaPixelColor)
         if(counterLines > 1):
             last_crop_img = np.concatenate((lineaPrev, last_crop_img), axis=0)
             cv.imshow('concatenate',last_crop_img)
         lineaPrev = copy.copy(lineaPixelColor)
+        """
+        
         window.setBackground(mapa)
 
         #cv.imshow('map2', mapa2)

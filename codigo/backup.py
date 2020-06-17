@@ -17,7 +17,7 @@ SIZE_BEAM_METERS = 15*2
 SIZE_BEAM_PIXELS = 908
 SIZE_SCALE_FACTOR = 10
 
-#bufferInertial  = Inertial.ReadFromFile("../recursos/datos/sibiu-pro-carboneras-anforas-2.jdb.salida")
+bufferInertial  = Inertial.ReadFromFile("../recursos/datos/sibiu-pro-carboneras-anforas-2.jdb.salida")
 #bufferCoord     = Coord.ReadFromFile("../recursos/datos/coordenadas.txt")
 bufferCoord     = Coord.ReadFromFile("../recursos/datos/datosposicion.txt")
 bufferPose      = Pose.ReadFromFile("../recursos/datos/pose.txt")
@@ -178,7 +178,6 @@ def rotate_line_pixel5(coordCont, center, radian):
    
     cos = np.cos(radian)
     sin = np.sin(radian)
-    
     xposIzq = int(cos * (x - center[0]) - sin * (y - center[1]) + center[0])
     yposIzq = int(sin * (x - center[0]) + cos * (y - center[1]) + center[1])
   
@@ -376,8 +375,6 @@ indexFrameROI = 0
 indexFrameY = 511
 counterLines=0
 last_crop_img = None
-xMetrosAnterior = None
-yMetrosAnterior = None
 
 # Read until video is completed
 while(cap.isOpened()):
@@ -450,30 +447,12 @@ while(cap.isOpened()):
         lineaPixels = img[indexFrameY:indexFrameY+1, 0:col]
         lineaPixelsAdjustLight = adjust_light(lineaPixels)
         
-        colorGrayLineaPixels = cv.cvtColor(lineaPixelsAdjustLight, cv.COLOR_BGR2GRAY)
+        colorGrayLineaPixels = cv.cvtColor(lineaPixels, cv.COLOR_BGR2GRAY)
         colorGrayLineaPixels = remove_water_column(colorGrayLineaPixels)
                 
         
-       
         xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
         xMetrosCentral, yMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
-        """
-        while True:
-            if xMetrosAnterior == None and yMetrosAnterior == None:
-                xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
-                xMetrosCentral, yMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
-                xMetrosAnterior, yMetrosAnterior = xMetrosCentral, yMetrosCentral
-                break
-            else:
-                xm, ym = float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)
-                xMetrosCentral, yMetrosCentral = float((xm-float(coordInit.x))), float((ym-float(coordInit.y))) 
-                distancia = euclidian_distance((xMetrosCentral, yMetrosCentral), (xMetrosAnterior, yMetrosAnterior))
-                if distancia > 0.1:
-                    xMetrosAnterior, yMetrosAnterior = xMetrosCentral, yMetrosCentral
-                    break
-                else:
-                    counterLines = counterLines + 1
-        """
 
 
         xPixelCentral, yPixelCentral = mapping2(xMetrosCentral, yMetrosCentral, mapa.shape[1]/2 ,mapa.shape[0]/2)
@@ -529,27 +508,23 @@ while(cap.isOpened()):
             if height2 > height: height = height2
             print(height, height2)
             if height < 1: height = 1
-        """ 
-        
+          
+
         if(counterLines > 0):
             #distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
             
             distance = euclidian_distance((float(bufferCoord[counterLines-1].x), float(bufferCoord[counterLines-1].y)), (float(bufferCoord[counterLines].x), float(bufferCoord[counterLines].y)))
             timestamp = (float(bufferCoord[counterLines].time) - float(bufferCoord[counterLines-1].time))/1000
             velocity = distance/timestamp
-            height = int(((velocity*timestamp)*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
-            print(distance)
+            height = int((velocity*SIZE_BEAM_PIXELS)/SIZE_BEAM_METERS)
+            
             rotationVel = np.abs((np.abs(float(bufferPose[counterLines-1].yaw )) - np.abs(float(bufferPose[counterLines].yaw )))/timestamp)
             if rotationVel > 0.5:
                 height = 1
             #print(height2)
             #height = int(height/2)
-            if height < 4: height = 5
-            print(distance, height, rotationVel)
-
-        else:
-            height = 5
-            #height = int(0.6*SIZE_BEAM_PIXELS/SIZE_BEAM_METERS)
+            if height < 1: height = 1
+        
         
         
         #print(bufferPose[counterLines].yaw)
@@ -580,7 +555,7 @@ while(cap.isOpened()):
                 elif lineaPixelDer[j,i] != 0:
                     mapa[pair[0]+j, pair[1]]  = lineaPixelDer[j,i]
                 
-        
+        """
 
         counterLines = counterLines + 1   
         indexFrameY = indexFrameY - 1
@@ -600,7 +575,7 @@ while(cap.isOpened()):
         lineaPrev = copy.copy(colorGrayLineaPixels)
         
         
-        window.setBackground(mapa)
+        #window.setBackground(mapa)
 
         #cv.imshow('map2', mapa2)
         
